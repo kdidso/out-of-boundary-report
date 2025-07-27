@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Out of Boundary Report</title>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -20,22 +21,24 @@
     }
     h1 {
       text-align: center;
-      margin-bottom: 30px;
+      margin-bottom: 10px;
     }
-    .quote {
-      background-color: #e9f0ff;
-      border-left: 5px solid #5a9ff7;
-      padding: 15px 20px;
-      margin-bottom: 20px;
+    #table-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 10px;
+    }
+    #download-btn {
+      background-color: #28a745;
+      color: white;
+      padding: 8px 16px;
+      font-size: 14px;
+      border: none;
       border-radius: 4px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      cursor: pointer;
     }
-    .quote a {
-      display: block;
-      margin-top: 6px;
-      font-weight: bold;
-      color: #2c66c1;
-      text-decoration: none;
+    #download-btn:hover {
+      background-color: #218838;
     }
     #table-container {
       background-color: white;
@@ -43,7 +46,7 @@
       box-shadow: 0 1px 5px rgba(0,0,0,0.1);
       overflow-y: auto;
       max-height: 400px;
-      margin-top: 40px;
+      margin-top: 20px;
       padding: 10px;
     }
     table {
@@ -66,11 +69,46 @@
     tr:hover {
       background-color: #f0f8ff;
     }
+    .quote {
+      background-color: #e9f0ff;
+      border-left: 5px solid #5a9ff7;
+      padding: 15px 20px;
+      margin: 25px 0;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .quote a {
+      display: block;
+      margin-top: 6px;
+      font-weight: bold;
+      color: #2c66c1;
+      text-decoration: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Out of Boundary Report</h1>
+    <div id="table-actions">
+      <button id="download-btn">Download</button>
+    </div>
+
+    <div id="table-container">
+      <table id="out-table">
+        <thead>
+          <tr>
+            <th>Last_Name</th>
+            <th>First_Name</th>
+            <th>Address</th>
+            <th>Apt_Number</th>
+            <th>Notes</th>
+            <th>Gender</th>
+            <th>Address_confidence</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
 
     <div class="quote">
       “Membership records should be kept in the ward where the member lives...”
@@ -92,23 +130,6 @@
       “The exercise of priesthood authority is governed by those who hold its keys...”
       <a href="https://www.churchofjesuschrist.org/study/general-conference/2014/04/the-keys-and-authority-of-the-priesthood" target="_blank">Dallin H. Oaks, Apr. 2014</a>
     </div>
-
-    <div id="table-container">
-      <table id="out-table">
-        <thead>
-          <tr>
-            <th>Last_Name</th>
-            <th>First_Name</th>
-            <th>Address</th>
-            <th>Apt_Number</th>
-            <th>Notes</th>
-            <th>Gender</th>
-            <th>Address_confidence</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
   </div>
 
   <script>
@@ -128,6 +149,8 @@
       const tbody = document.querySelector('#out-table tbody');
       tbody.innerHTML = '';
 
+      window.filteredRows = [];
+
       members.features.forEach(member => {
         const pt = turf.point(member.geometry.coordinates);
         const isInside = boundaries.features.some(poly => turf.booleanPointInPolygon(pt, poly));
@@ -144,9 +167,28 @@
             <td>${props.Address_confidence || ''}</td>
           `;
           tbody.appendChild(row);
+
+          window.filteredRows.push({
+            Last_Name: props.Last_Name || '',
+            First_Name: props.First_Name || '',
+            Address: props.Address || '',
+            Apt_Number: props.Apt_Number ?? '',
+            Notes: props.Notes ?? '',
+            Gender: props.Gender || '',
+            Address_confidence: props.Address_confidence || ''
+          });
         }
       });
     }
+
+    function downloadTable() {
+      const ws = XLSX.utils.json_to_sheet(window.filteredRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "OutOfBoundary");
+      XLSX.writeFile(wb, "out_of_boundary_report.xlsx");
+    }
+
+    document.getElementById("download-btn").addEventListener("click", downloadTable);
 
     updateTable();
   </script>

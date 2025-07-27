@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Out of Boundary Report</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+    }
+    .quote {
+      margin: 20px auto;
+      padding: 10px;
+      max-width: 800px;
+      font-style: italic;
+      background-color: #eef;
+      border-left: 4px solid #88f;
+    }
+    .quote a {
+      color: #3366cc;
+      text-decoration: none;
+    }
+    #table-container {
+      margin: 30px auto;
+      max-width: 95%;
+      overflow-y: auto;
+      height: 400px;
+      border: 1px solid #ccc;
+      background: #fff;
+      padding: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Out of Boundary Report</h1>
+
+  <div class="quote">
+    “Membership records should be kept in the ward where the member lives...<br />
+    <a href="https://www.churchofjesuschrist.org/study/manual/general-handbook/33-records-and-reports" target="_blank">General Handbook 33.6.2</a>”
+  </div>
+  <div class="quote">
+    “Wards are chosen for us by geography...<br />
+    <a href="https://www.churchofjesuschrist.org/study/liahona/2024/10/digital-only/3-principles-for-building-unity-in-your-ward-or-branch" target="_blank">Elder D. Todd Christofferson, Liahona, Oct. 2024</a>”
+  </div>
+  <div class="quote">
+    “A ward or branch is intended to be a geographic congregation...<br />
+    <a href="https://newsroom.churchofjesuschrist.org/article/first-presidency-announces-uniform-worldwide-standards-for-ward-and-stake-boundaries" target="_blank">First Presidency Letter, Nov. 2023</a>”
+  </div>
+  <div class="quote">
+    “When a man is ordained a bishop... he has no authority outside the boundaries of his ward...<br />
+    <a href="https://www.churchofjesuschrist.org/study/ensign/1993/02/what-every-elder-should-know-and-every-sister-as-well" target="_blank">Boyd K. Packer, Ensign, Feb. 1993</a>”
+  </div>
+  <div class="quote">
+    “The exercise of priesthood authority is governed by those who hold its keys...<br />
+    <a href="https://www.churchofjesuschrist.org/study/general-conference/2014/04/the-keys-and-authority-of-the-priesthood" target="_blank">Dallin H. Oaks, Apr. 2014</a>”
+  </div>
+
+  <div id="table-container">
+    <table id="out-table">
+      <thead>
+        <tr>
+          <th>Last_Name</th>
+          <th>First_Name</th>
+          <th>Address</th>
+          <th>lat</th>
+          <th>lon</th>
+          <th>Apt_Number</th>
+          <th>Notes</th>
+          <th>Gender</th>
+          <th>Address_confidence</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function loadGeoJSON(url) {
+      const res = await fetch(url);
+      return await res.json();
+    }
+
+    function pointInPolygon(point, polygon) {
+      let [x, y] = point;
+      let inside = false;
+      for (let ring of polygon) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const xi = ring[i][0], yi = ring[i][1];
+          const xj = ring[j][0], yj = ring[j][1];
+          const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + xi));
+          if (intersect) inside = !inside;
+        }
+      }
+      return inside;
+    }
+
+    function isOutside(feature, boundaries) {
+      const point = feature.geometry.coordinates;
+      return !boundaries.features.some(boundary => {
+        const coords = boundary.geometry.coordinates;
+        return boundary.geometry.type === "Polygon"
+          ? pointInPolygon(point, coords)
+          : coords.some(ring => pointInPolygon(point, ring));
+      });
+    }
+
+    async function updateTable() {
+      const memberURL = 'https://kdidso.github.io/snow-canyon-map/member_locations_JSO.geojson';
+      const boundaryURL = 'https://kdidso.github.io/snow-canyon-map/ward_boundaries_JSO.geojson';
+      const [members, boundaries] = await Promise.all([loadGeoJSON(memberURL), loadGeoJSON(boundaryURL)]);
+      const outMembers = members.features.filter(f => isOutside(f, boundaries));
+      const tbody = document.querySelector('#out-table tbody');
+      tbody.innerHTML = '';
+
+      for (const f of outMembers) {
+        const props = f.properties;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${props.Last_Name || ''}</td>
+          <td>${props.First_Name || ''}</td>
+          <td>${props.Address || ''}</td>
+          <td>${f.geometry.coordinates[1]}</td>
+          <td>${f.geometry.coordinates[0]}</td>
+          <td>${props.Apt_Number ?? ''}</td>
+          <td>${props.Notes ?? ''}</td>
+          <td>${props.Gender || ''}</td>
+          <td>${props.Address_confidence || ''}</td>
+        `;
+        tbody.appendChild(row);
+      }
+    }
+
+    updateTable();
+  </script>
+</body>
+</html>

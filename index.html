@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Out of Boundary Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -96,55 +97,35 @@
       return await res.json();
     }
 
-    function pointInPolygon(point, polygon) {
-      let [x, y] = point;
-      let inside = false;
-      for (let ring of polygon) {
-        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-          const xi = ring[i][0], yi = ring[i][1];
-          const xj = ring[j][0], yj = ring[j][1];
-          const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
-          if (intersect) inside = !inside;
-        }
-      }
-      return inside;
-    }
-
-    function isOutside(feature, boundaries) {
-      const point = feature.geometry.coordinates;
-      return !boundaries.features.some(boundary => {
-        const coords = boundary.geometry.coordinates;
-        if (boundary.geometry.type === "Polygon") {
-          return pointInPolygon(point, coords[0]);
-        } else if (boundary.geometry.type === "MultiPolygon") {
-          return coords.some(ring => pointInPolygon(point, ring[0]));
-        }
-        return false;
-      });
-    }
-
     async function updateTable() {
-      const memberURL = 'https://kdidso.github.io/snow%20canyon%20map/member_locations_JSO.geojson';
-      const boundaryURL = 'https://kdidso.github.io/snow%20canyon%20map/ward_boundaries_JSO.geojson';
-      const [members, boundaries] = await Promise.all([loadGeoJSON(memberURL), loadGeoJSON(boundaryURL)]);
-      const outMembers = members.features.filter(f => isOutside(f, boundaries));
+      const memberURL = 'https://kdidso.github.io/snow-canyon-map/member_locations_JSO.geojson';
+      const boundaryURL = 'https://kdidso.github.io/snow-canyon-map/ward_boundaries_JSO.geojson';
+      const [members, boundaries] = await Promise.all([
+        loadGeoJSON(memberURL),
+        loadGeoJSON(boundaryURL)
+      ]);
+
       const tbody = document.querySelector('#out-table tbody');
       tbody.innerHTML = '';
 
-      for (const f of outMembers) {
-        const props = f.properties;
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${props.Last_Name || ''}</td>
-          <td>${props.First_Name || ''}</td>
-          <td>${props.Address || ''}</td>
-          <td>${props.Apt_Number ?? ''}</td>
-          <td>${props.Notes ?? ''}</td>
-          <td>${props.Gender || ''}</td>
-          <td>${props.Address_confidence || ''}</td>
-        `;
-        tbody.appendChild(row);
-      }
+      members.features.forEach(member => {
+        const pt = turf.point(member.geometry.coordinates);
+        const isInside = boundaries.features.some(poly => turf.booleanPointInPolygon(pt, poly));
+        if (!isInside) {
+          const props = member.properties;
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${props.Last_Name || ''}</td>
+            <td>${props.First_Name || ''}</td>
+            <td>${props.Address || ''}</td>
+            <td>${props.Apt_Number ?? ''}</td>
+            <td>${props.Notes ?? ''}</td>
+            <td>${props.Gender || ''}</td>
+            <td>${props.Address_confidence || ''}</td>
+          `;
+          tbody.appendChild(row);
+        }
+      });
     }
 
     updateTable();

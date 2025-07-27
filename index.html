@@ -26,6 +26,8 @@
     #table-actions {
       display: flex;
       justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 10px;
     }
     #download-btn {
@@ -39,6 +41,12 @@
     }
     #download-btn:hover {
       background-color: #218838;
+    }
+    select {
+      padding: 6px 10px;
+      font-size: 14px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
     }
     #table-container {
       background-color: white;
@@ -90,6 +98,10 @@
   <div class="container">
     <h1>Out of Boundary Report</h1>
     <div id="table-actions">
+      <select id="format-select">
+        <option value="xlsx">Excel (.xlsx)</option>
+        <option value="csv">CSV (.csv)</option>
+      </select>
       <button id="download-btn">Download</button>
     </div>
 
@@ -182,10 +194,15 @@
     }
 
     function downloadTable() {
+      const format = document.getElementById("format-select").value;
       const ws = XLSX.utils.json_to_sheet(window.filteredRows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "OutOfBoundary");
-      XLSX.writeFile(wb, "out_of_boundary_report.xlsx");
+      if (format === 'csv') {
+        XLSX.writeFile(wb, "out_of_boundary_report.csv", { bookType: 'csv' });
+      } else {
+        XLSX.writeFile(wb, "out_of_boundary_report.xlsx");
+      }
     }
 
     document.getElementById("download-btn").addEventListener("click", downloadTable);

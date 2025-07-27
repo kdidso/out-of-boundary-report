@@ -80,8 +80,6 @@
           <th>Last_Name</th>
           <th>First_Name</th>
           <th>Address</th>
-          <th>lat</th>
-          <th>lon</th>
           <th>Apt_Number</th>
           <th>Notes</th>
           <th>Gender</th>
@@ -105,7 +103,7 @@
         for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
           const xi = ring[i][0], yi = ring[i][1];
           const xj = ring[j][0], yj = ring[j][1];
-          const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + xi));
+          const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
           if (intersect) inside = !inside;
         }
       }
@@ -116,15 +114,18 @@
       const point = feature.geometry.coordinates;
       return !boundaries.features.some(boundary => {
         const coords = boundary.geometry.coordinates;
-        return boundary.geometry.type === "Polygon"
-          ? pointInPolygon(point, coords)
-          : coords.some(ring => pointInPolygon(point, ring));
+        if (boundary.geometry.type === "Polygon") {
+          return pointInPolygon(point, coords[0]);
+        } else if (boundary.geometry.type === "MultiPolygon") {
+          return coords.some(ring => pointInPolygon(point, ring[0]));
+        }
+        return false;
       });
     }
 
     async function updateTable() {
-      const memberURL = 'https://kdidso.github.io/snow-canyon-map/member_locations_JSO.geojson';
-      const boundaryURL = 'https://kdidso.github.io/snow-canyon-map/ward_boundaries_JSO.geojson';
+      const memberURL = 'https://kdidso.github.io/snow%20canyon%20map/member_locations_JSO.geojson';
+      const boundaryURL = 'https://kdidso.github.io/snow%20canyon%20map/ward_boundaries_JSO.geojson';
       const [members, boundaries] = await Promise.all([loadGeoJSON(memberURL), loadGeoJSON(boundaryURL)]);
       const outMembers = members.features.filter(f => isOutside(f, boundaries));
       const tbody = document.querySelector('#out-table tbody');
@@ -137,8 +138,6 @@
           <td>${props.Last_Name || ''}</td>
           <td>${props.First_Name || ''}</td>
           <td>${props.Address || ''}</td>
-          <td>${f.geometry.coordinates[1]}</td>
-          <td>${f.geometry.coordinates[0]}</td>
           <td>${props.Apt_Number ?? ''}</td>
           <td>${props.Notes ?? ''}</td>
           <td>${props.Gender || ''}</td>
